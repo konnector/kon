@@ -62,28 +62,28 @@ export default function BusinessDashboard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard
-            title="Active Campaigns"
+            label="Active Campaigns"
             value="12"
             icon={<BriefcaseIcon className="w-6 h-6 text-blue-600" />}
-            trend={{ value: 8, isPositive: true }}
+            trend={{ value: 8, label: "vs last month" }}
           />
           <StatCard
-            title="Total Influencers"
+            label="Total Influencers"
             value="48"
             icon={<UserGroupIcon className="w-6 h-6 text-green-600" />}
-            trend={{ value: 12, isPositive: true }}
+            trend={{ value: 12, label: "vs last month" }}
           />
           <StatCard
-            title="Campaign ROI"
+            label="Campaign ROI"
             value="$12,500"
             icon={<BanknotesIcon className="w-6 h-6 text-purple-600" />}
-            trend={{ value: 15, isPositive: true }}
+            trend={{ value: 15, label: "vs last month" }}
           />
           <StatCard
-            title="Engagement Rate"
+            label="Engagement Rate"
             value="4.8%"
             icon={<ChartBarIcon className="w-6 h-6 text-orange-600" />}
-            trend={{ value: 2, isPositive: true }}
+            trend={{ value: 2, label: "vs last month" }}
           />
         </div>
 
