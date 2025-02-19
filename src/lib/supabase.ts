@@ -1,4 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { type EmailOtpType } from '@supabase/supabase-js';
 
 // Debug logs
 console.log('Environment Variables:');
@@ -14,165 +15,143 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase URL or anonymous key');
 }
 
-// Regular client for normal operations
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+// Create a single instance of the Supabase client
+const supabase = createPagesBrowserClient();
 
-// Admin client for test data creation - only used server-side
-export const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+export type AuthError = {
+  message: string;
+  status?: number;
+};
 
-// Auth helper functions
-export const signUp = async (email: string, password: string, userData: any) => {
+export type AuthResponse = {
+  error: AuthError | null;
+  data: any | null;
+  message?: string;
+};
+
+export const handleSignUp = async (email: string, password: string, userType: 'influencer' | 'business'): Promise<AuthResponse> => {
   try {
-    // Check if user already exists first
-    const { data: existingUser } = await supabase
-      .from(userData.type === 'influencer' ? 'influencer_profiles' : 'business_profiles')
-      .select('id')
-      .eq('id', email)
-      .single();
+    console.log('Initiating sign up:', { email, userType });
+    
+    // Configure the email template URL
+    const redirectTo = new URL('/auth/callback', window.location.origin);
+    console.log('Redirect URL:', redirectTo.toString());
 
-    if (existingUser) {
-      throw new Error('An account with this email already exists. Please sign in instead.');
-    }
-
-    // Sign up the user
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: userData,
-        emailRedirectTo: `${window.location.origin}/onboarding`,
+        emailRedirectTo: redirectTo.toString(),
+        data: {
+          type: userType,
+        },
       },
     });
 
-    if (error) {
-      // Handle rate limiting error specifically
-      if (error.message?.toLowerCase().includes('rate limit')) {
-        throw new Error('Too many signup attempts. Please wait a few minutes before trying again.');
-      }
-      throw error;
-    }
+    console.log('Sign up response:', { data, error });
 
-    if (!data.user) throw new Error('No user data returned from sign-up');
+    if (error) throw error;
 
-    // Create the appropriate profile based on user type
-    if (userData.type === 'influencer') {
-      const { error: profileError } = await supabase
-        .from('influencer_profiles')
-        .insert([
-          {
-            id: data.user.id,
-            name: userData.name,
-            platforms: [],
-            follower_counts: {},
-            content_categories: [],
-            social_links: {},
-            onboarding_completed: false,
-          },
-        ])
-        .select();
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        throw profileError;
-      }
-    } else if (userData.type === 'business') {
-      const { error: profileError } = await supabase
-        .from('business_profiles')
-        .insert([
-          {
-            id: data.user.id,
-            business_name: userData.name,
-            social_media_links: {},
-            product_categories: [],
-            onboarding_completed: false,
-          },
-        ])
-        .select();
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        throw profileError;
-      }
-    }
-
-    // Get the session after sign up
-    const { data: sessionData } = await supabase.auth.getSession();
-    
-    // If we don't have a session, wait briefly and try again
-    if (!sessionData?.session) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const { data: retrySessionData } = await supabase.auth.getSession();
-      if (!retrySessionData?.session) {
-        console.warn('No session available after signup');
-      }
-    }
-
-    return { data, error: null };
+    return { 
+      data, 
+      error: null,
+      message: 'Please check your email for the verification link.'
+    };
   } catch (error: any) {
     console.error('Sign up error:', error);
-    return { 
-      data: null, 
+    return {
+      data: null,
       error: {
-        message: error.message || 'An error occurred during sign up',
+        message: error.message || 'Failed to sign up',
         status: error.status
       }
     };
   }
 };
 
-export const signIn = async (email: string, password: string) => {
+export const handleSignIn = async (email: string, password: string): Promise<AuthResponse> => {
   try {
+    console.log('Initiating sign in:', { email });
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
+    console.log('Sign in response:', { data, error });
+
     if (error) throw error;
-    if (!data.user) throw new Error('No user data returned from authentication');
 
-    // After successful sign-in, check if user has completed onboarding
-    const { data: influencer } = await supabase
-      .from('influencer_profiles')
-      .select('onboarding_completed')
-      .eq('id', data.user.id)
-      .single();
-
-    const { data: business } = await supabase
-      .from('business_profiles')
-      .select('onboarding_completed')
-      .eq('id', data.user.id)
-      .single();
-
-    return {
-      data: {
-        ...data,
-        onboardingCompleted: !!(influencer?.onboarding_completed || business?.onboarding_completed),
-        userType: data.user.user_metadata?.type || null,
-      },
-      error: null,
-    };
+    return { data, error: null };
   } catch (error: any) {
     console.error('Sign in error:', error);
-    return { data: null, error };
+    return {
+      data: null,
+      error: {
+        message: error.message || 'Failed to sign in',
+        status: error.status
+      }
+    };
   }
 };
 
-export const signOut = async () => {
-  const { error } = await supabase.auth.signOut();
-  return { error };
+export const handleSignOut = async (): Promise<AuthResponse> => {
+  try {
+    console.log('Initiating sign out');
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) throw error;
+
+    return { data: true, error: null };
+  } catch (error: any) {
+    console.error('Sign out error:', error);
+    return {
+      data: null,
+      error: {
+        message: error.message || 'Failed to sign out',
+        status: error.status
+      }
+    };
+  }
 };
+
+export const handleAuthStateChange = (callback: (event: any, session: any) => void) => {
+  console.log('Setting up auth state change listener');
+  return supabase.auth.onAuthStateChange(callback);
+};
+
+export const getCurrentSession = async () => {
+  console.log('Getting current session');
+  const { data: { session }, error } = await supabase.auth.getSession();
+  console.log('Current session:', { session, error });
+  return { session, error };
+};
+
+export const handleEmailVerification = async (token: string): Promise<AuthResponse> => {
+  try {
+    console.log('Processing email verification:', { token });
+    
+    // First try to exchange the PKCE token
+    const { data, error } = await supabase.auth.exchangeCodeForSession(token);
+    
+    console.log('Verification response:', { data, error });
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Verification error:', error);
+    return {
+      data: null,
+      error: {
+        message: error.message || 'Failed to verify email',
+        status: error.status
+      }
+    };
+  }
+};
+
+export { supabase };
 
 export const createTestProfile = async () => {
   const testEmail = 'test.influencer@tempmail.dev'; // Using a valid email format
@@ -435,7 +414,7 @@ export const createTestInfluencers = async () => {
   try {
     for (const influencer of testInfluencers) {
       // Create auth user with admin rights
-      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+      const { data: userData, error: userError } = await supabase.auth.admin.createUser({
         email: influencer.email,
         password: 'testpass123',
         email_confirm: true,
@@ -455,20 +434,17 @@ export const createTestInfluencers = async () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Create influencer profile
-      const { error: profileError } = await supabaseAdmin
-        .from('influencer_profiles')
-        .insert([
-          {
-            id: userData.user.id,
-            name: influencer.name,
-            description: influencer.description,
-            content_categories: influencer.content_categories,
-            platforms: influencer.platforms,
-            follower_counts: influencer.follower_counts,
-            social_links: influencer.social_links,
-            onboarding_completed: true
-          }
-        ]);
+      const { error: profileError } = await supabase.auth.admin.updateUserById(userData.user.id, {
+        user_metadata: {
+          ...userData.user.user_metadata,
+          description: influencer.description,
+          content_categories: influencer.content_categories,
+          platforms: influencer.platforms,
+          follower_counts: influencer.follower_counts,
+          social_links: influencer.social_links,
+          onboarding_completed: true
+        }
+      });
 
       if (profileError) {
         console.error('Error creating profile:', profileError);
@@ -596,7 +572,7 @@ export const createTestBusinesses = async () => {
   try {
     for (const business of testBusinesses) {
       // Create auth user with admin rights
-      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+      const { data: userData, error: userError } = await supabase.auth.admin.createUser({
         email: business.email,
         password: 'testpass123',
         email_confirm: true,
@@ -616,21 +592,18 @@ export const createTestBusinesses = async () => {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Create business profile
-      const { error: profileError } = await supabaseAdmin
-        .from('business_profiles')
-        .insert([
-          {
-            id: userData.user.id,
-            business_name: business.name,
-            description: business.description,
-            website_url: business.website,
-            location: business.location,
-            product_categories: business.product_categories,
-            company_size: business.size,
-            budget_range: business.budget_range,
-            onboarding_completed: true
-          }
-        ]);
+      const { error: profileError } = await supabase.auth.admin.updateUserById(userData.user.id, {
+        user_metadata: {
+          ...userData.user.user_metadata,
+          description: business.description,
+          website_url: business.website,
+          location: business.location,
+          product_categories: business.product_categories,
+          company_size: business.size,
+          budget_range: business.budget_range,
+          onboarding_completed: true
+        }
+      });
 
       if (profileError) {
         console.error('Error creating profile:', profileError);

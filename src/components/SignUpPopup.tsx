@@ -3,6 +3,8 @@ import { Fragment, useState } from 'react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { signInWithGoogle } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/router';
+import { toast } from 'react-hot-toast';
 
 interface SignUpPopupProps {
   isOpen: boolean;
@@ -11,8 +13,11 @@ interface SignUpPopupProps {
 }
 
 export default function SignUpPopup({ isOpen, onClose, userType }: SignUpPopupProps) {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const supabase = useSupabaseClient();
@@ -30,14 +35,26 @@ export default function SignUpPopup({ isOpen, onClose, userType }: SignUpPopupPr
         password,
         options: {
           data: {
-            user_type: userType,
+            type: userType === 'brand' ? 'business' : 'influencer',
+            first_name: firstName,
+            last_name: lastName,
+            full_name: `${firstName} ${lastName}`
           },
+          emailRedirectTo: `${window.location.origin}/onboarding`,
         },
       });
 
       if (error) throw error;
+      
+      toast.success('Sign up successful! Please check your email to verify your account.');
       onClose();
+      
+      // Redirect to onboarding after a brief delay
+      setTimeout(() => {
+        router.push('/onboarding');
+      }, 1500);
     } catch (error: any) {
+      console.error('Sign up error:', error);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -101,6 +118,34 @@ export default function SignUpPopup({ isOpen, onClose, userType }: SignUpPopupPr
                 )}
 
                 <form onSubmit={handleEmailSignUp} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                        First Name
+                      </label>
+                      <input
+                        type="text"
+                        id="firstName"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        id="lastName"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                       Email

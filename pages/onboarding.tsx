@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Globe, Instagram, Facebook, Twitter, LinkedinIcon, Youtube } from 'lucide-react';
 import type { UserType, InfluencerProfile, BusinessProfile, Platform, FollowerRange, ContentCategory } from '@/types/onboarding';
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { sendWaitlistConfirmation, sendAdminNotification } from '@/lib/email';
 
 const revenueRanges = [
   { value: "0-10000", label: "0 - $10,000" },
@@ -50,47 +51,58 @@ const followerRanges = [
   { value: "500000+", label: "500,000+" },
 ];
 
-const contentCategories = [
+interface CategoryType {
+  value: string;
+  label: string;
+  description: string;
+}
+
+const contentCategories: CategoryType[] = [
   {
     value: "beauty",
     label: "Beauty & Makeup",
-    description: "Cosmetics, skincare, and beauty tutorials",
+    description: "Cosmetics, skincare, and beauty tutorials"
   },
   {
     value: "fashion",
     label: "Fashion",
-    description: "Style tips, fashion trends, and outfit inspiration",
+    description: "Style tips, fashion trends, and outfit inspiration"
   },
   {
     value: "fitness",
     label: "Fitness & Health",
-    description: "Workouts, nutrition, and wellness content",
+    description: "Workouts, nutrition, and wellness content"
   },
   {
     value: "tech",
     label: "Technology",
-    description: "Tech reviews, gadgets, and digital content",
+    description: "Tech reviews, gadgets, and digital content"
   },
   {
     value: "lifestyle",
     label: "Lifestyle",
-    description: "Daily vlogs, life tips, and personal content",
+    description: "Daily vlogs, life tips, and personal content"
   },
   {
     value: "education",
     label: "Education",
-    description: "Tutorials, how-tos, and educational content",
+    description: "Tutorials, how-tos, and educational content"
   },
   {
     value: "gaming",
     label: "Gaming",
-    description: "Gaming streams, reviews, and playthroughs",
+    description: "Gaming streams, reviews, and playthroughs"
   },
   {
     value: "food",
     label: "Food & Cooking",
-    description: "Recipes, cooking tutorials, and food reviews",
+    description: "Recipes, cooking tutorials, and food reviews"
   },
+  {
+    value: "other",
+    label: "Other",
+    description: "Add your own category"
+  }
 ];
 
 const socialPlatforms = [
@@ -102,29 +114,57 @@ const socialPlatforms = [
   { value: "linkedin", label: "LinkedIn", icon: LinkedinIcon },
 ];
 
+interface BusinessFormData {
+  businessName: string;
+  description: string;
+  website: string;
+  location: string;
+  categories: string[];
+  revenueRange: string;
+  productTypes: string[];
+  socialPlatforms: string[];
+  socialLinks: Record<string, string>;
+}
+
+interface InfluencerFormData {
+  name: string;
+  bio: string;
+  website: string;
+  location: string;
+  categories: string[];
+  socialPlatforms: string[];
+  socialLinks: Record<string, string>;
+  followerCounts: Record<string, string>;
+}
+
 const BusinessOnboarding = () => {
   const router = useRouter();
-  const [formData, setFormData] = useState({
-    businessName: "",
-    website: "",
-    socialPlatforms: [] as string[],
-    revenue: "",
-    productType: "",
-    description: "",
+  const [formData, setFormData] = useState<BusinessFormData>({
+    businessName: '',
+    description: '',
+    website: '',
+    location: '',
+    categories: [],
+    revenueRange: '',
+    productTypes: [],
+    socialPlatforms: [],
+    socialLinks: {},
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const calculateProgress = () => {
     const fields = [
       formData.businessName,
       formData.website,
-      formData.productType,
+      formData.productTypes.length > 0,
       formData.description,
     ];
-    const filledFields = fields.filter(field => field && field.trim().length > 0).length;
-    const hasSocialPlatforms = formData.socialPlatforms.length > 0;
-    
-    // Calculate percentage (4 required fields + social platforms)
-    return Math.round((filledFields + (hasSocialPlatforms ? 1 : 0)) / 5 * 100);
+    const filledFields = fields.filter(field => {
+      if (typeof field === 'boolean') return field;
+      return field && field.trim().length > 0;
+    }).length;
+    return (filledFields / fields.length) * 100;
   };
 
   const handleInputChange = (field: string, value: any) => {
@@ -142,32 +182,75 @@ const BusinessOnboarding = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setLoading(true);
+    setError(null);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      const { error } = await supabase
+      // Create business profile
+      const { data: profile, error: profileError } = await supabase
         .from('business_profiles')
         .upsert({
           id: user.id,
           business_name: formData.businessName,
-          website_url: formData.website,
-          social_media_links: formData.socialPlatforms.reduce((acc, platform) => ({
-            ...acc,
-            [platform]: ""
-          }), {}),
-          estimated_revenue: formData.revenue as any,
-          product_categories: [formData.productType],
           description: formData.description,
-          onboarding_completed: true,
-        });
+          industry_categories: formData.categories,
+          website: formData.website,
+          location: formData.location,
+          revenue_range: formData.revenueRange,
+          product_types: formData.productTypes,
+          social_links: formData.socialLinks,
+          status: 'active',
+          onboarding_completed: true
+        }, {
+          onConflict: 'id'
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      router.push('/dashboard');
-    } catch (error) {
-      console.error('Error saving business profile:', error);
+      // Update spreadsheet
+      const spreadsheetResponse = await fetch('/api/update-spreadsheet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'business',
+          profile
+        }),
+      });
+
+      const spreadsheetData = await spreadsheetResponse.json();
+      
+      if (!spreadsheetResponse.ok) {
+        throw new Error(spreadsheetData.error || 'Failed to update spreadsheet');
+      }
+
+      // Send welcome email and admin notification
+      await Promise.all([
+        sendWaitlistConfirmation({
+          to: user.email!,
+          name: formData.businessName,
+          userType: 'business'
+        }),
+        sendAdminNotification({
+          email: user.email!,
+          name: formData.businessName,
+          userType: 'business',
+          profile: profile
+        })
+      ]);
+
+      router.push('/waitlist-confirmation');
+    } catch (err: any) {
+      console.error('Error:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -185,6 +268,13 @@ const BusinessOnboarding = () => {
             <p className="text-muted-foreground">Tell us more about your business to get started</p>
             <ProgressBar progress={calculateProgress()} className="mt-4" />
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <strong className="font-bold">Error: </strong>
+              <span className="block sm:inline">{error}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Business Details Card */}
@@ -248,7 +338,7 @@ const BusinessOnboarding = () => {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="revenue">Estimated Annual Revenue (Optional)</Label>
-                    <Select onValueChange={(value) => handleInputChange("revenue", value)} value={formData.revenue}>
+                    <Select onValueChange={(value) => handleInputChange("revenueRange", value)} value={formData.revenueRange}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select revenue range" />
                       </SelectTrigger>
@@ -269,11 +359,11 @@ const BusinessOnboarding = () => {
                         <div
                           key={type.value}
                           className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                            formData.productType === type.value
+                            formData.productTypes.includes(type.value)
                               ? "border-primary bg-primary/5"
                               : "border-gray-200 hover:border-gray-300"
                           }`}
-                          onClick={() => handleInputChange("productType", type.value)}
+                          onClick={() => handleInputChange("productTypes", [type.value])}
                         >
                           <div className="font-medium">{type.label}</div>
                           <p className="text-sm text-muted-foreground mt-1">{type.description}</p>
@@ -308,32 +398,38 @@ const BusinessOnboarding = () => {
 
 const InfluencerOnboarding = () => {
   const router = useRouter();
-  const [formData, setFormData] = useState({
-    name: "",
-    bio: "",
-    socialPlatforms: [] as string[],
-    socialLinks: {} as Record<string, string>,
-    followerCounts: {} as Record<string, string>,
-    followerRange: "",
-    categories: [] as string[],
+  const [formData, setFormData] = useState<InfluencerFormData>({
+    name: '',
+    bio: '',
+    website: '',
+    location: '',
+    categories: [],
+    socialPlatforms: [],
+    socialLinks: {},
+    followerCounts: {},
   });
+  const [customCategory, setCustomCategory] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const calculateProgress = () => {
     const fields = [
       formData.name,
       formData.bio,
-      formData.followerRange,
+      formData.categories.length > 0,
+      Object.keys(formData.followerCounts).length > 0,
+      formData.socialPlatforms.length > 0
     ];
-    const filledFields = fields.filter(field => field && field.trim().length > 0).length;
-    const hasSocialPlatforms = formData.socialPlatforms.length > 0;
-    const hasCategories = formData.categories.length > 0;
-    
-    // Calculate percentage (3 required fields + social platforms + categories)
-    return Math.round((filledFields + (hasSocialPlatforms ? 1 : 0) + (hasCategories ? 1 : 0)) / 5 * 100);
+    const filledFields = fields.filter(field => {
+      if (typeof field === 'boolean') return field;
+      return field && field.trim().length > 0;
+    }).length;
+    return (filledFields / fields.length) * 100;
   };
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: keyof InfluencerFormData, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSocialPlatformToggle = (platform: string) => {
@@ -361,40 +457,97 @@ const InfluencerOnboarding = () => {
     });
   };
 
-  const handleCategoryToggle = (category: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      categories: prev.categories.includes(category)
-        ? prev.categories.filter((c) => c !== category)
-        : [...prev.categories, category],
-    }));
+  const handleCategoryChange = (value: string) => {
+    setSelectedCategory(value);
+    if (value !== 'other') {
+      setFormData(prev => ({
+        ...prev,
+        categories: [value]
+      }));
+      setCustomCategory('');
+    }
+  };
+
+  const handleCustomCategoryAdd = () => {
+    if (customCategory.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        categories: [customCategory.trim()]
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setLoading(true);
+    setError(null);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      const { error } = await supabase
+      // Create influencer profile
+      const { data: profile, error: profileError } = await supabase
         .from('influencer_profiles')
         .upsert({
           id: user.id,
           name: formData.name,
-          platforms: formData.socialPlatforms,
-          social_links: formData.socialLinks,
-          follower_counts: formData.followerCounts,
-          content_categories: formData.categories,
           description: formData.bio,
-          onboarding_completed: true,
-        });
+          content_categories: formData.categories,
+          platforms: formData.socialPlatforms,
+          follower_counts: formData.followerCounts,
+          social_links: formData.socialLinks,
+          website: formData.website,
+          location: formData.location,
+          status: 'active',
+          onboarding_completed: true
+        }, {
+          onConflict: 'id'
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      router.push('/dashboard');
-    } catch (error) {
-      console.error('Error saving influencer profile:', error);
+      // Update spreadsheet
+      const spreadsheetResponse = await fetch('/api/update-spreadsheet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'influencer',
+          profile
+        }),
+      });
+
+      const spreadsheetData = await spreadsheetResponse.json();
+      
+      if (!spreadsheetResponse.ok) {
+        throw new Error(spreadsheetData.error || 'Failed to update spreadsheet');
+      }
+
+      // Send welcome email and admin notification
+      await Promise.all([
+        sendWaitlistConfirmation({
+          to: user.email!,
+          name: formData.name,
+          userType: 'influencer'
+        }),
+        sendAdminNotification({
+          email: user.email!,
+          name: formData.name,
+          userType: 'influencer',
+          profile: profile
+        })
+      ]);
+
+      router.push('/waitlist-confirmation');
+    } catch (err: any) {
+      console.error('Error in onboarding:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -412,6 +565,13 @@ const InfluencerOnboarding = () => {
             <p className="text-muted-foreground">Tell us more about yourself to get started</p>
             <ProgressBar progress={calculateProgress()} className="mt-4" />
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <strong className="font-bold">Error: </strong>
+              <span className="block sm:inline">{error}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Personal Details Card */}
@@ -499,23 +659,50 @@ const InfluencerOnboarding = () => {
               <CardContent className="pt-6 space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-3">
-                    <Label>Content Categories</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {contentCategories.map((category) => (
-                        <div
-                          key={category.value}
-                          className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                            formData.categories.includes(category.value)
-                              ? "border-primary bg-primary/5"
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
-                          onClick={() => handleCategoryToggle(category.value)}
-                        >
-                          <div className="font-medium">{category.label}</div>
-                          <p className="text-sm text-muted-foreground mt-1">{category.description}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <Label>Content Category</Label>
+                    <Select
+                      value={selectedCategory}
+                      onValueChange={handleCategoryChange}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select your main content category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {contentCategories.map((category) => (
+                          <SelectItem key={category.value} value={category.value}>
+                            {category.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {selectedCategory === 'other' && (
+                      <div className="mt-2">
+                        <Input
+                          placeholder="Enter your category"
+                          value={customCategory}
+                          onChange={(e) => {
+                            setCustomCategory(e.target.value);
+                            if (e.target.value.trim()) {
+                              handleCustomCategoryAdd();
+                            }
+                          }}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
+
+                    {/* Show selected or custom category */}
+                    {formData.categories.length > 0 && (
+                      <div className="mt-2 p-2 bg-primary/5 rounded-md">
+                        <p className="text-sm text-muted-foreground">Selected Category:</p>
+                        <p className="font-medium">
+                          {formData.categories[0] === selectedCategory 
+                            ? contentCategories.find(c => c.value === selectedCategory)?.label 
+                            : formData.categories[0]}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -535,9 +722,9 @@ const InfluencerOnboarding = () => {
             <Button 
               type="submit" 
               className="w-full"
-              disabled={!formData.name || formData.socialPlatforms.length === 0 || formData.categories.length === 0}
+              disabled={loading || !formData.name || formData.socialPlatforms.length === 0 || formData.categories.length === 0}
             >
-              Complete Profile
+              {loading ? 'Creating Profile...' : 'Complete Profile'}
             </Button>
           </form>
         </div>

@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { Infinity } from 'lucide-react';
+import UserMenu from './ui/UserMenu';
 
 const HomePage = () => {
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
@@ -108,32 +109,32 @@ const HomePage = () => {
 
   const faqs = [
     {
-      question: "How much does Konnecter cost to use?",
-      answer: "We offer flexible pricing plans starting from $19/month. Check our pricing section for detailed information about features and costs."
+      question: "What is Konnector and how does it work?",
+      answer: "Konnector is an AI-powered platform that connects businesses with the right influencers for marketing campaigns. Brands can find influencers based on niche, audience, and engagement, while influencers get collaboration opportunities."
     },
     {
-      question: "How do I integrate my own knowledge bases?",
-      answer: "You can easily connect your existing content and social media profiles through our dashboard. We support major platforms and custom integrations."
+      question: "How do I sign up as an influencer or a business?",
+      answer: "Simply create an account, set up your profile, and connect your social media. Businesses can post campaign needs, while influencers can showcase their content to get discovered."
     },
     {
-      question: "Is collaboration and space sharing supported?",
-      answer: "Yes, Konnecter is built for collaboration. You can easily share campaigns, manage team access, and work together with brands or influencers."
+      question: "How are influencers matched with brands?",
+      answer: "Konnector uses AI to match influencers with brands based on niche, audience demographics, engagement, and campaign goals. Brands can also manually browse influencer profiles."
     },
     {
-      question: "How does Konnecter work?",
-      answer: "Konnecter uses AI-powered matching to connect influencers with relevant brands. Create your profile, browse opportunities, and start collaborating seamlessly."
+      question: "Is there a fee to use the platform?",
+      answer: "Konnector offers a freemium model—basic access is free, while premium features and campaign tools may require a subscription or commission."
     },
     {
-      question: "Can I access Konnecter via API?",
-      answer: "Yes, we provide a comprehensive API for enterprise users. Contact us for API documentation and integration support."
+      question: "How do payments and collaborations work?",
+      answer: "Payments are processed securely through Konnector's escrow system and released once deliverables are met. Brands and influencers can set terms based on fixed fees, performance, or product exchange."
     },
     {
-      question: "How is my data being stored and managed?",
-      answer: "Your data is securely stored using industry-standard encryption. We follow strict privacy guidelines and never share your information without consent."
+      question: "What types of influencers and brands can join?",
+      answer: "Konnector is open to all influencers—micro to macro—across TikTok, YouTube, and Instagram. Businesses from all industries can sign up to run influencer campaigns."
     },
     {
-      question: "Is using Konnecter considered cheating?",
-      answer: "No, Konnecter is a legitimate platform for professional influencer-brand collaborations. We promote transparent and ethical partnerships."
+      question: "How do you ensure quality and prevent scams?",
+      answer: "We verify influencers and businesses, hold payments securely, and offer dispute resolution. Reviews and ratings help maintain trust within the platform."
     }
   ];
 
@@ -157,12 +158,16 @@ const HomePage = () => {
               <a href="#faq" className="text-gray-600 hover:text-black transition-colors">
                 FAQ
               </a>
-              <button 
-                onClick={() => setIsSignInOpen(true)}
-                className="bg-black text-white px-4 py-2 rounded-full text-sm hover:bg-black/90 transition-colors"
-              >
-                Sign In
-              </button>
+              {user ? (
+                <UserMenu />
+              ) : (
+                <button 
+                  onClick={() => setIsSignInOpen(true)}
+                  className="bg-black text-white px-4 py-2 rounded-full text-sm hover:bg-black/90 transition-colors"
+                >
+                  Sign In
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -180,18 +185,48 @@ const HomePage = () => {
           <div className="flex justify-center gap-3 mb-10">
             <button 
               className="bg-black text-white px-6 py-2 rounded-full text-base font-medium hover:bg-black/90 transition-colors"
-              onClick={() => {
-                setUserType('influencer');
-                setIsSignUpOpen(true);
+              onClick={async () => {
+                if (user) {
+                  // If user is logged in, check their onboarding status
+                  const { data: profile } = await supabase
+                    .from('influencer_profiles')
+                    .select('onboarding_completed')
+                    .eq('id', user.id)
+                    .single();
+                  
+                  if (profile?.onboarding_completed) {
+                    router.push('/dashboard/influencer');
+                  } else {
+                    router.push('/onboarding');
+                  }
+                } else {
+                  setUserType('influencer');
+                  setIsSignUpOpen(true);
+                }
               }}
             >
               I am an Influencer →
             </button>
             <button 
               className="bg-black text-white px-6 py-2 rounded-full text-base font-medium border border-gray-200 hover:bg-black/90 transition-colors"
-              onClick={() => {
-                setUserType('brand');
-                setIsSignUpOpen(true);
+              onClick={async () => {
+                if (user) {
+                  // If user is logged in, check their onboarding status
+                  const { data: profile } = await supabase
+                    .from('business_profiles')
+                    .select('onboarding_completed')
+                    .eq('id', user.id)
+                    .single();
+                  
+                  if (profile?.onboarding_completed) {
+                    router.push('/dashboard/business');
+                  } else {
+                    router.push('/onboarding');
+                  }
+                } else {
+                  setUserType('brand');
+                  setIsSignUpOpen(true);
+                }
               }}
             >
               I am a Brand/Business →

@@ -4,7 +4,6 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { signInWithGoogle } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/router';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 
 interface SignInPopupProps {

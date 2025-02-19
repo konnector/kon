@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 
-// Create Supabase admin client with service role key
+// Create Supabase admin client
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.SUPABASE_SERVICE_KEY || '',
@@ -13,116 +13,74 @@ const supabaseAdmin = createClient(
   }
 );
 
+// Function to generate a random email based on business name
+function generateRandomEmail(businessName: string): string {
+  const sanitizedName = businessName.toLowerCase().replace(/\s+/g, '.');
+  const randomString = Math.random().toString(36).substring(2, 8);
+  return `${sanitizedName}.${randomString}@example.com`;
+}
+
+// Test businesses data
 const testBusinesses = [
   {
-    email: "tech.innovations@test.com",
-    name: "Tech Innovations",
-    description: "Leading technology company specializing in consumer electronics and smart home devices.",
-    website: "www.techinnovations.test",
-    location: "Silicon Valley, CA",
-    product_categories: ["Electronics", "Smart Home", "Gadgets"],
-    size: "50-200 employees",
-    media_url: "https://images.unsplash.com/photo-1519389950473-47ba0277781c",
-    media_type: "image"
-  },
-  {
-    email: "eco.fashion@test.com",
-    name: "Eco Fashion",
-    description: "Sustainable fashion brand creating eco-friendly clothing and accessories.",
-    website: "www.ecofashion.test",
-    location: "New York, NY",
-    product_categories: ["Fashion", "Accessories", "Sustainable"],
-    size: "20-50 employees",
-    media_url: "https://images.unsplash.com/photo-1581375074612-d1fd0e661aeb",
-    media_type: "image"
-  },
-  {
-    email: "healthy.eats@test.com",
-    name: "Healthy Eats",
-    description: "Organic food delivery service providing fresh, healthy meals.",
-    website: "www.healthyeats.test",
-    location: "Los Angeles, CA",
-    product_categories: ["Food & Beverage", "Health", "Delivery"],
-    size: "100-500 employees",
-    media_url: "https://images.unsplash.com/photo-1498837167922-ddd27525d352",
-    media_type: "image"
-  },
-  {
-    email: "fitness.gear@test.com",
     name: "Fitness Gear Pro",
     description: "Premium fitness equipment and sportswear manufacturer.",
     website: "www.fitnessgear.test",
     location: "Chicago, IL",
-    product_categories: ["Sports", "Fitness", "Apparel"],
-    size: "200-500 employees",
-    media_url: "https://images.unsplash.com/photo-1571902943202-507ec2618e8f",
-    media_type: "image"
+    industry_categories: ["Sports", "Fitness", "Apparel"],
+    product_categories: ["Equipment", "Apparel", "Accessories"],
+    social_media_links: {
+      instagram: "@fitnessgear",
+      facebook: "fitnessgear.pro"
+    }
   },
   {
-    email: "beauty.co@test.com",
     name: "Beauty Co",
     description: "Natural and organic beauty products for conscious consumers.",
     website: "www.beautyco.test",
     location: "Miami, FL",
-    product_categories: ["Beauty", "Skincare", "Organic"],
-    size: "50-200 employees",
-    media_url: "https://images.unsplash.com/photo-1596462502278-27bfdc403348",
-    media_type: "image"
+    industry_categories: ["Beauty", "Cosmetics", "Wellness"],
+    product_categories: ["Skincare", "Makeup", "Hair Care"],
+    social_media_links: {
+      instagram: "@beautyco",
+      facebook: "beautyco.official"
+    }
   },
   {
-    email: "travel.adventures@test.com",
-    name: "Travel Adventures",
-    description: "Adventure travel company organizing unique experiences worldwide.",
-    website: "www.traveladventures.test",
-    location: "Denver, CO",
-    product_categories: ["Travel", "Adventure", "Tourism"],
-    size: "20-50 employees",
-    media_url: "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800",
-    media_type: "image"
-  },
-  {
-    email: "pet.supplies@test.com",
-    name: "Pet Paradise",
-    description: "Premium pet supplies and accessories retailer.",
-    website: "www.petparadise.test",
-    location: "Seattle, WA",
-    product_categories: ["Pets", "Accessories", "Food"],
-    size: "100-200 employees",
-    media_url: "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7",
-    media_type: "image"
-  },
-  {
-    email: "home.decor@test.com",
-    name: "Modern Living",
-    description: "Contemporary home decor and furniture company.",
-    website: "www.modernliving.test",
-    location: "Austin, TX",
-    product_categories: ["Home Decor", "Furniture", "Design"],
-    size: "50-100 employees",
-    media_url: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6",
-    media_type: "image"
-  },
-  {
-    email: "gaming.world@test.com",
-    name: "Gaming World",
-    description: "Gaming peripherals and accessories manufacturer.",
-    website: "www.gamingworld.test",
+    name: "Digital Learning Hub",
+    description: "Online education platform providing courses in technology and business.",
+    website: "www.digitallearning.test",
     location: "San Francisco, CA",
-    product_categories: ["Gaming", "Electronics", "Accessories"],
-    size: "100-200 employees",
-    media_url: "https://images.unsplash.com/photo-1542751371-adc38448a05e",
-    media_type: "image"
+    industry_categories: ["Education", "Technology", "E-learning"],
+    product_categories: ["Online Courses", "Certifications", "Training"],
+    social_media_links: {
+      linkedin: "digital-learning-hub",
+      twitter: "@digitallearn"
+    }
   },
   {
-    email: "kids.toys@test.com",
-    name: "Kids Wonder",
-    description: "Educational toys and games for children.",
-    website: "www.kidswonder.test",
+    name: "Green Earth Foods",
+    description: "Sustainable and organic food products manufacturer.",
+    website: "www.greenearth.test",
+    location: "Portland, OR",
+    industry_categories: ["Food & Beverage", "Organic", "Sustainable"],
+    product_categories: ["Organic Foods", "Snacks", "Beverages"],
+    social_media_links: {
+      instagram: "@greenearth",
+      facebook: "greenearth.foods"
+    }
+  },
+  {
+    name: "Tech Solutions Inc",
+    description: "Enterprise software solutions and IT consulting services.",
+    website: "www.techsolutions.test",
     location: "Boston, MA",
-    product_categories: ["Toys", "Education", "Games"],
-    size: "20-50 employees",
-    media_url: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088",
-    media_type: "image"
+    industry_categories: ["Technology", "Software", "IT Services"],
+    product_categories: ["Software", "Consulting", "Support Services"],
+    social_media_links: {
+      linkedin: "tech-solutions-inc",
+      twitter: "@techsolutions"
+    }
   }
 ];
 
@@ -135,45 +93,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const results = [];
     
     for (const business of testBusinesses) {
-      let userId;
-
       try {
-        // Try to create the user
+        const email = generateRandomEmail(business.name);
+        console.log(`Creating business with email: ${email}`);
+
+        // Create auth user with admin rights
         const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
-          email: business.email,
+          email,
           password: 'testpass123',
           email_confirm: true,
           user_metadata: {
             name: business.name,
-            type: 'business'
+            type: 'business',
+            email: email
           }
         });
 
         if (userError) {
-          // If user already exists, try to get their ID from the business_profiles table
-          const { data: existingProfile } = await supabaseAdmin
-            .from('business_profiles')
-            .select('id')
-            .eq('business_name', business.name)
-            .single();
+          console.error('Error creating user:', userError);
+          throw userError;
+        }
 
-          if (existingProfile) {
-            userId = existingProfile.id;
-            console.log(`Using existing profile for ${business.email}`);
-            results.push({
-              email: business.email,
-              name: business.name,
-              success: true,
-              status: 'existing'
-            });
-            continue;
-          } else {
-            // If we can't find the profile, throw the original error
-            throw userError;
-          }
-        } else {
-          userId = userData.user.id;
-          console.log(`Created new user for ${business.email}`);
+        if (!userData.user) {
+          throw new Error('No user data returned');
         }
 
         // Wait a short time between operations to avoid rate limiting
@@ -184,16 +126,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .from('business_profiles')
           .insert([
             {
-              id: userId,
+              id: userData.user.id,
               business_name: business.name,
               description: business.description,
-              website_url: business.website,
+              website: business.website,
               location: business.location,
+              industry_categories: business.industry_categories,
               product_categories: business.product_categories,
-              company_size: business.size,
-              media_url: business.media_url,
-              media_type: business.media_type,
-              onboarding_completed: true
+              social_media_links: business.social_media_links,
+              onboarding_completed: true,
+              status: 'active',
+              verified: true
             }
           ]);
 
@@ -202,17 +145,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           throw profileError;
         }
 
+        // Update spreadsheet
+        const spreadsheetResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/api/update-spreadsheet`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-is-test-data': 'true'
+          },
+          body: JSON.stringify({
+            type: 'business',
+            profile: {
+              id: userData.user.id,
+              email: email,
+              business_name: business.name,
+              description: business.description,
+              industry_categories: business.industry_categories,
+              website: business.website,
+              location: business.location,
+              status: 'active',
+              verified: true
+            }
+          }),
+        });
+
+        if (!spreadsheetResponse.ok) {
+          const spreadsheetError = await spreadsheetResponse.json();
+          throw new Error(`Failed to update spreadsheet: ${spreadsheetError.error}`);
+        }
+
         results.push({
-          email: business.email,
+          email,
           name: business.name,
           success: true,
           status: 'created'
         });
 
       } catch (error: any) {
-        console.error(`Error processing business ${business.email}:`, error);
+        console.error(`Error processing business ${business.name}:`, error);
         results.push({
-          email: business.email,
           name: business.name,
           success: false,
           status: 'error',
