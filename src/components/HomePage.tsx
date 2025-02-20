@@ -177,10 +177,10 @@ const HomePage = () => {
       <section className="pt-28 pb-8 px-4">
         <div className="container mx-auto max-w-3xl text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-5 text-[#2d3748] leading-tight">
-            Connect With The Perfect<br />Partner For Your Brand
+            Connect With The Perfect<br />Influencer/Brand...
           </h1>
           <p className="text-xl text-gray-600 mb-6">
-            Where Influencers and Brands Create Meaningful Partnerships
+            Connect... Collabrate... Grow...
           </p>
           <div className="flex justify-center gap-3 mb-10">
             <button 
@@ -234,7 +234,7 @@ const HomePage = () => {
           </div>
 
           {/* Infinite Loop Animation */}
-          <div className="relative mt-6 overflow-hidden max-w-4xl mx-auto">
+          <div className="relative mt-10 overflow-hidden max-w-4xl mx-auto">
             {/* Left gradient overlay */}
             <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-white to-transparent z-10"></div>
             {/* Right gradient overlay */}
@@ -353,10 +353,10 @@ const HomePage = () => {
       <style jsx global>{`
         @keyframes infinite-scroll {
           from {
-            transform: translateX(0);
+            transform: translateX(-0%);
           }
           to {
-            transform: translateX(-50%);
+            transform: translateX(-100%);
           }
         }
         .animate-infinite-scroll {
