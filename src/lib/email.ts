@@ -85,6 +85,10 @@ export async function sendAdminNotification(newUser: {
   userType: string;
   profile: any;
 }) {
+  if (!resend) {
+    throw new Error('Email client not initialized - this method must be called from the server');
+  }
+
   try {
     const response = await resend.emails.send({
       from: 'Konnect <notifications@konnect.app>',
