@@ -11,6 +11,13 @@ import { PlusIcon } from '@heroicons/react/24/outline';
 import { Infinity } from 'lucide-react';
 import UserMenu from './ui/UserMenu';
 
+// Import images
+import tiktokThumbnail from '../../public/images/tiktok-thumbnail.png';
+import creatorContent from '../../public/images/fdsfsdf.png';
+import socialMedia from '../../public/images/gguqwenlk.png';
+import contentCreator from '../../public/images/gvhbjkwe.jpg';
+import influencer from '../../public/images/ddc1f1fdb9f34179b72eb0e29ccf7556_1688864558.jpg';
+
 const HomePage = () => {
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
   const [isSignInOpen, setIsSignInOpen] = useState(false);
@@ -244,7 +251,7 @@ const HomePage = () => {
               {/* First set of images */}
               <div className="flex-none w-32 h-[260px] rounded-xl overflow-hidden">
                 <Image 
-                  src="/images/tiktok-thumbnail.png"
+                  src={tiktokThumbnail}
                   alt="TikTok Thumbnail"
                   width={128}
                   height={260}
@@ -254,7 +261,7 @@ const HomePage = () => {
               </div>
               <div className="flex-none w-32 h-[260px] rounded-xl overflow-hidden">
                 <Image 
-                  src="/images/fdsfsdf.png"
+                  src={creatorContent}
                   alt="Creator Content"
                   width={128}
                   height={260}
@@ -264,7 +271,7 @@ const HomePage = () => {
               </div>
               <div className="flex-none w-32 h-[260px] rounded-xl overflow-hidden">
                 <Image 
-                  src="/images/gguqwenlk.png"
+                  src={socialMedia}
                   alt="Social Media"
                   width={128}
                   height={260}
@@ -274,7 +281,7 @@ const HomePage = () => {
               </div>
               <div className="flex-none w-32 h-[260px] rounded-xl overflow-hidden">
                 <Image 
-                  src="/images/gvhbjkwe.jpg"
+                  src={contentCreator}
                   alt="Content Creator"
                   width={128}
                   height={260}
@@ -284,7 +291,7 @@ const HomePage = () => {
               </div>
               <div className="flex-none w-32 h-[260px] rounded-xl overflow-hidden">
                 <Image 
-                  src="/images/ddc1f1fdb9f34179b72eb0e29ccf7556_1688864558.jpg"
+                  src={influencer}
                   alt="Influencer"
                   width={128}
                   height={260}
@@ -296,7 +303,7 @@ const HomePage = () => {
               {/* Duplicate set for seamless loop */}
               <div className="flex-none w-32 h-[260px] rounded-xl overflow-hidden">
                 <Image 
-                  src="/images/tiktok-thumbnail.png"
+                  src={tiktokThumbnail}
                   alt="TikTok Thumbnail"
                   width={128}
                   height={260}
@@ -306,7 +313,7 @@ const HomePage = () => {
               </div>
               <div className="flex-none w-32 h-[260px] rounded-xl overflow-hidden">
                 <Image 
-                  src="/images/fdsfsdf.png"
+                  src={creatorContent}
                   alt="Creator Content"
                   width={128}
                   height={260}
@@ -316,7 +323,7 @@ const HomePage = () => {
               </div>
               <div className="flex-none w-32 h-[260px] rounded-xl overflow-hidden">
                 <Image 
-                  src="/images/gguqwenlk.png"
+                  src={socialMedia}
                   alt="Social Media"
                   width={128}
                   height={260}
@@ -326,7 +333,7 @@ const HomePage = () => {
               </div>
               <div className="flex-none w-32 h-[260px] rounded-xl overflow-hidden">
                 <Image 
-                  src="/images/gvhbjkwe.jpg"
+                  src={contentCreator}
                   alt="Content Creator"
                   width={128}
                   height={260}
@@ -336,7 +343,7 @@ const HomePage = () => {
               </div>
               <div className="flex-none w-32 h-[260px] rounded-xl overflow-hidden">
                 <Image 
-                  src="/images/ddc1f1fdb9f34179b72eb0e29ccf7556_1688864558.jpg"
+                  src={influencer}
                   alt="Influencer"
                   width={128}
                   height={260}
