@@ -1,6 +1,14 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Server-side only initialization
+let resend: Resend | null = null;
+
+if (typeof window === 'undefined') {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('Missing RESEND_API_KEY environment variable');
+  }
+  resend = new Resend(process.env.RESEND_API_KEY);
+}
 
 interface SendWaitlistEmailProps {
   to: string;
@@ -9,6 +17,10 @@ interface SendWaitlistEmailProps {
 }
 
 export async function sendWaitlistConfirmation({ to, name, userType }: SendWaitlistEmailProps) {
+  if (!resend) {
+    throw new Error('Email client not initialized - this method must be called from the server');
+  }
+
   try {
     const response = await resend.emails.send({
       from: 'Konnect <waitlist@konnect.app>',

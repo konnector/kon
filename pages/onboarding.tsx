@@ -12,7 +12,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Globe, Instagram, Facebook, Twitter, LinkedinIcon, Youtube } from 'lucide-react';
 import type { UserType, InfluencerProfile, BusinessProfile, Platform, FollowerRange, ContentCategory } from '@/types/onboarding';
 import { ProgressBar } from '@/components/ui/progress-bar';
-import { sendWaitlistConfirmation, sendAdminNotification } from '@/lib/email';
 
 const revenueRanges = [
   { value: "0-10000", label: "0 - $10,000" },
@@ -189,6 +188,13 @@ const BusinessOnboarding = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
+      // Debug: Log Supabase configuration
+      console.log('Supabase Client Config:', {
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        isServer: typeof window === 'undefined'
+      });
+
       // Create business profile
       const { data: profile, error: profileError } = await supabase
         .from('business_profiles')
@@ -196,13 +202,11 @@ const BusinessOnboarding = () => {
           id: user.id,
           business_name: formData.businessName,
           description: formData.description,
-          industry_categories: formData.categories,
+          product_categories: formData.categories,
           website: formData.website,
           location: formData.location,
-          revenue_range: formData.revenueRange,
-          product_types: formData.productTypes,
-          social_links: formData.socialLinks,
-          status: 'active',
+          social_media_links: formData.socialLinks,
+          email: user.email,
           onboarding_completed: true
         }, {
           onConflict: 'id'
@@ -225,30 +229,32 @@ const BusinessOnboarding = () => {
       });
 
       const spreadsheetData = await spreadsheetResponse.json();
-      
       if (!spreadsheetResponse.ok) {
         throw new Error(spreadsheetData.error || 'Failed to update spreadsheet');
       }
 
-      // Send welcome email and admin notification
-      await Promise.all([
-        sendWaitlistConfirmation({
-          to: user.email!,
-          name: formData.businessName,
-          userType: 'business'
-        }),
-        sendAdminNotification({
-          email: user.email!,
+      // Send emails through the API endpoint
+      const emailResponse = await fetch('/api/waitlist/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user.email,
           name: formData.businessName,
           userType: 'business',
-          profile: profile
-        })
-      ]);
+          profile
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        throw new Error('Failed to send welcome email');
+      }
 
       router.push('/waitlist-confirmation');
-    } catch (err: any) {
-      console.error('Error:', err);
-      setError(err.message);
+    } catch (error) {
+      console.error('Error:', error);
+      setError(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -486,66 +492,129 @@ const InfluencerOnboarding = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      // Create influencer profile
-      const { data: profile, error: profileError } = await supabase
+      // Test 1: Schema Access Test
+      console.log('=== Schema Access Test ===');
+      const { data: schemaTest, error: schemaError } = await supabase
         .from('influencer_profiles')
-        .upsert({
-          id: user.id,
-          name: formData.name,
-          description: formData.bio,
-          content_categories: formData.categories,
-          platforms: formData.socialPlatforms,
-          follower_counts: formData.followerCounts,
-          social_links: formData.socialLinks,
-          website: formData.website,
-          location: formData.location,
-          status: 'active',
-          onboarding_completed: true
-        }, {
-          onConflict: 'id'
-        })
-        .select()
-        .single();
-
-      if (profileError) throw profileError;
-
-      // Update spreadsheet
-      const spreadsheetResponse = await fetch('/api/update-spreadsheet', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: 'influencer',
-          profile
-        }),
+        .select('*')
+        .limit(1);
+      console.log('Schema Test:', {
+        success: !!schemaTest,
+        columnCount: schemaTest ? Object.keys(schemaTest[0] || {}).length : 0,
+        error: schemaError
       });
 
-      const spreadsheetData = await spreadsheetResponse.json();
-      
-      if (!spreadsheetResponse.ok) {
-        throw new Error(spreadsheetData.error || 'Failed to update spreadsheet');
+      // Test 2: Specific Column Access Test
+      console.log('=== Column Access Test ===');
+      const { data: columnTest, error: columnError } = await supabase
+        .from('influencer_profiles')
+        .select('email')
+        .limit(1);
+      console.log('Column Test:', {
+        success: !!columnTest,
+        hasEmailColumn: columnTest ? 'email' in (columnTest[0] || {}) : false,
+        error: columnError
+      });
+
+      // Test 3: RLS Policy Test
+      console.log('=== RLS Policy Test ===');
+      const { data: rlsTest, error: rlsError } = await supabase
+        .from('influencer_profiles')
+        .select('id, email')
+        .eq('id', user.id)
+        .single();
+      console.log('RLS Test:', {
+        success: !!rlsTest,
+        error: rlsError,
+        userId: user.id
+      });
+
+      // Test 4: Minimal Profile Creation
+      console.log('=== Minimal Profile Test ===');
+      const minimalProfile = {
+        id: user.id,
+        name: formData.name
+      };
+      const { data: minTest, error: minError } = await supabase
+        .from('influencer_profiles')
+        .insert(minimalProfile)
+        .select()
+        .single();
+      console.log('Minimal Profile Test:', {
+        success: !!minTest,
+        error: minError,
+        profile: minTest
+      });
+
+      // If minimal profile succeeds, proceed with full profile
+      if (minTest) {
+        console.log('=== Full Profile Update ===');
+        const updateData = {
+          bio: formData.bio || null,
+          content_categories: formData.categories,
+          website: formData.website || null,
+          location: formData.location || null,
+          social_links: formData.socialLinks || {},
+          follower_counts: formData.followerCounts || {},
+          platforms: formData.socialPlatforms || [],
+          onboarding_completed: true,
+          email: user.email // Add email separately
+        };
+
+        const { data: updatedProfile, error: updateError } = await supabase
+          .from('influencer_profiles')
+          .update(updateData)
+          .eq('id', user.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Update Error:', updateError);
+          throw updateError;
+        }
+
+        // Update spreadsheet
+        const spreadsheetResponse = await fetch('/api/update-spreadsheet', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'influencer',
+            profile: updatedProfile
+          }),
+        });
+
+        const spreadsheetData = await spreadsheetResponse.json();
+        if (!spreadsheetResponse.ok) {
+          throw new Error(spreadsheetData.error || 'Failed to update spreadsheet');
+        }
+
+        // Send emails through the API endpoint
+        const emailResponse = await fetch('/api/waitlist/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: user.email,
+            name: formData.name,
+            userType: 'influencer',
+            profile: updatedProfile
+          }),
+        });
+
+        if (!emailResponse.ok) {
+          throw new Error('Failed to send welcome email');
+        }
+
+        router.push('/waitlist-confirmation');
+      } else {
+        throw minError || new Error('Failed to create minimal profile');
       }
-
-      // Send welcome email and admin notification
-      await Promise.all([
-        sendWaitlistConfirmation({
-          to: user.email!,
-          name: formData.name,
-          userType: 'influencer'
-        }),
-        sendAdminNotification({
-          email: user.email!,
-          name: formData.name,
-          userType: 'influencer',
-          profile: profile
-        })
-      ]);
-
-      router.push('/waitlist-confirmation');
-    } catch (err: any) {
-      console.error('Error in onboarding:', err);
-      setError(err.message);
+    } catch (error) {
+      console.error('Error:', error);
+      setError(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
