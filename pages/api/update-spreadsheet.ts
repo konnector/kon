@@ -150,12 +150,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           commonData.type,                     // Type
           commonData.name,                     // Name/Business Name
           commonData.description,              // Description
-          Array.isArray(profile.industry_categories) ? profile.industry_categories.join(', ') : '',  // Categories
+          Array.isArray(profile.product_categories) ? profile.product_categories.join(', ') : '',  // Categories
           commonData.location,                 // Location
           commonData.website,                  // Website
           '',                                 // Follower Counts (empty for business)
-          '',                                 // Platforms (empty for business)
+          Array.isArray(profile.platforms) ? profile.platforms.join(', ') : '',  // Platforms
           typeof profile.social_links === 'object' ? JSON.stringify(profile.social_links) : '',  // Social Links
+          profile.revenue || '',               // Monthly Revenue
           commonData.status,                   // Status
           commonData.verified                  // Verified
         ];
