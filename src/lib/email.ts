@@ -11,7 +11,14 @@ interface SendEmailParams {
   html: string;
 }
 
-export const sendEmail = async ({ to, subject, html }: SendEmailParams) => {
+interface SendEmailResult {
+  success: boolean;
+  error?: unknown;
+  html?: string;
+  previewOnly?: boolean;
+}
+
+export const sendEmail = async ({ to, subject, html }: SendEmailParams): Promise<SendEmailResult> => {
   if (!process.env.SENDGRID_API_KEY) {
     throw new Error('SendGrid API key is not configured');
   }
@@ -25,7 +32,7 @@ export const sendEmail = async ({ to, subject, html }: SendEmailParams) => {
 
   try {
     await sgMail.send(msg);
-    return { success: true };
+    return { success: true, html };
   } catch (error) {
     console.error('Error sending email:', error);
     return { success: false, error };
@@ -40,7 +47,7 @@ interface SendWaitlistEmailProps {
   totalSignups: number;
 }
 
-export async function sendWaitlistConfirmation({ to, name, userType, position, totalSignups }: SendWaitlistEmailProps) {
+export async function sendWaitlistConfirmation({ to, name, userType, position, totalSignups }: SendWaitlistEmailProps): Promise<SendEmailResult> {
   const subject = '🎉 Welcome to Konnect - You\'re In!';
   const html = `
     <!DOCTYPE html>
@@ -162,7 +169,7 @@ interface AdminNotificationProps {
   position: number;
 }
 
-export async function sendAdminNotification({ email, name, userType, profile, position }: AdminNotificationProps) {
+export async function sendAdminNotification({ email, name, userType, profile, position }: AdminNotificationProps): Promise<SendEmailResult> {
   const subject = '🎯 New Waitlist Signup!';
   const html = `
     <!DOCTYPE html>
@@ -250,7 +257,7 @@ ${JSON.stringify(profile, null, 2)}
   });
 }
 
-export const sendWelcomeEmail = async (userEmail: string, name: string, userType: 'influencer' | 'business') => {
+export const sendWelcomeEmail = async (userEmail: string, name: string, userType: 'influencer' | 'business'): Promise<SendEmailResult> => {
   const subject = `🚀 Welcome To Konnector.. Launching in 7 Days!`;
   const html = `
     <!DOCTYPE html>
@@ -351,7 +358,11 @@ export const sendWelcomeEmail = async (userEmail: string, name: string, userType
   `;
 
   if (process.env.NODE_ENV === 'development' && !process.env.SEND_REAL_EMAILS) {
-    return html;
+    return {
+      success: true,
+      html,
+      previewOnly: true
+    };
   }
 
   return sendEmail({ to: userEmail, subject, html });
