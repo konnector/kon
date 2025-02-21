@@ -27,11 +27,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const data = type === 'influencer' ? testData.influencer : testData.business;
 
     // Generate the email without sending it
-    const emailContent = await sendWelcomeEmail(data.email, data.name, data.type as 'influencer' | 'business');
+    const result = await sendWelcomeEmail(data.email, data.name, data.type as 'influencer' | 'business');
 
     // Return the HTML content
     res.setHeader('Content-Type', 'text/html');
-    return res.send(emailContent);
+    return res.send(result.html || 'Preview not available');
 
   } catch (error) {
     console.error('Error generating preview:', error);
